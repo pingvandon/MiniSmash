@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
-<title>MiniSmash — Rebuilt</title>
+<title>MiniSmash — Final Polished Build</title>
 <style>
 :root{
   --bg1:#bfeaff; --card:#ffffffcc; --btn-size:80px;
@@ -11,7 +11,7 @@
 }
 *{box-sizing:border-box;font-family:Inter,system-ui,Segoe UI,Roboto,Arial;}
 html,body{height:100%;margin:0;background:linear-gradient(180deg,var(--bg1),#9be7ff);-webkit-tap-highlight-color:transparent;}
-/* menu */
+/* Menu */
 #menu{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;z-index:80}
 .card{width:920px;max-width:96%;background:var(--card);padding:18px;border-radius:12px;box-shadow:0 10px 30px rgba(0,0,0,0.15);text-align:center}
 .row{display:flex;gap:12px;justify-content:center;flex-wrap:wrap;margin-top:8px}
@@ -22,9 +22,9 @@ html,body{height:100%;margin:0;background:linear-gradient(180deg,var(--bg1),#9be
 
 /* UI */
 #ui{display:none;flex-direction:column;height:100vh;gap:8px;padding:8px;box-sizing:border-box}
-#topBar{display:flex;justify-content:space-between;align-items:center;padding:8px;background:rgba(255,255,255,0.9);border-radius:10px;z-index:20}
+#topBar{display:flex;justify-content:space-between;align-items:center;padding:8px;background:rgba(255,255,255,0.92);border-radius:10px;z-index:20}
 .info{font-weight:700;color:#222;display:flex;gap:12px;align-items:center}
-canvas{width:100%;height:calc(100vh - 160px);display:block;border-radius:8px;background:linear-gradient(180deg,#9fdfff,#dff9ff)}
+canvas{width:100%;height:calc(100vh - 160px);display:block;border-radius:8px;background:transparent}
 .controls-wrap{position:fixed;bottom:3vh;left:0;right:0;display:none;justify-content:space-between;padding:0 3vw;pointer-events:none;z-index:50}
 .group{display:flex;gap:10px;align-items:center;pointer-events:auto}
 .btn{width:var(--btn-size);height:var(--btn-size);border-radius:12px;border:none;background:#222;color:#fff;font-weight:800;font-size:20px;display:flex;align-items:center;justify-content:center;box-shadow:0 8px 18px rgba(0,0,0,0.22);user-select:none;transition:transform .06s,opacity .08s}
@@ -36,6 +36,7 @@ canvas{width:100%;height:calc(100vh - 160px);display:block;border-radius:8px;bac
 .special{background:#e74c3c}
 #overlayWin{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,0.6);color:white;font-size:44px;font-weight:900;z-index:90}
 #arrow{position:fixed;top:12px;right:12px;font-size:26px;display:none;z-index:60}
+.map-thumb{width:140px;height:70px;display:flex;align-items:center;justify-content:center;border-radius:8px;background:#fff}
 @media (max-width:900px){:root{--btn-size:72px}}
 </style>
 </head>
@@ -44,7 +45,7 @@ canvas{width:100%;height:calc(100vh - 160px);display:block;border-radius:8px;bac
 <!-- MENU -->
 <div id="menu">
   <div class="card">
-    <h1>MiniSmash — Your Game</h1>
+    <h1>MiniSmash — Final</h1>
     <div style="display:flex;gap:18px;justify-content:center;align-items:flex-start;">
       <div style="text-align:left;">
         <h3>Mode</h3>
@@ -72,9 +73,9 @@ canvas{width:100%;height:calc(100vh - 160px);display:block;border-radius:8px;bac
     <div style="margin-top:14px;text-align:left;">
       <label class="small">Map Select</label>
       <div class="row" id="mapRow">
-        <div class="thumb selected" data-map="floating">Floating Platforms</div>
-        <div class="thumb" data-map="desert">Desert Arena</div>
-        <div class="thumb" data-map="city">City Rooftops</div>
+        <div class="thumb selected" data-map="floating"><div class="map-thumb">Floating</div></div>
+        <div class="thumb" data-map="desert"><div class="map-thumb">Desert</div></div>
+        <div class="thumb" data-map="city"><div class="map-thumb">City</div></div>
       </div>
     </div>
 
@@ -95,7 +96,7 @@ canvas{width:100%;height:calc(100vh - 160px);display:block;border-radius:8px;bac
   <div id="topBar">
     <div class="info">P1 <span id="p1Lives"></span> <span id="p1Percent">0%</span></div>
     <div class="info" id="mapLabel">Map</div>
-    <div class="info"><span id="p2Percent">0%</span> <span id="p2Lives"></span> P2</div>
+    <div class="info"><span id='p2Percent'>0%</span> <span id='p2Lives'></span> P2</div>
   </div>
 
   <div id="game">
@@ -128,7 +129,9 @@ canvas{width:100%;height:calc(100vh - 160px);display:block;border-radius:8px;bac
 <div id="arrow">→</div>
 
 <script>
-/* ====== Utilities ====== */
+/* ---------------------------
+   Utilities & input binding
+   --------------------------- */
 function bindTouch(id,obj,prop){
   const el = document.getElementById(id);
   if(!el) return;
@@ -139,236 +142,535 @@ function bindTouch(id,obj,prop){
   el.addEventListener('mouseup', release); el.addEventListener('mouseleave', release);
 }
 
-/* ====== Menu logic ====== */
+/* ---------------------------
+   Menu & selection
+   --------------------------- */
 const menu = document.getElementById('menu'), ui = document.getElementById('ui');
+let mode = 1, selectedMap = 'floating';
 document.querySelectorAll('#charRow1 .thumb').forEach(t=>t.addEventListener('click', ()=>{ document.querySelectorAll('#charRow1 .thumb').forEach(x=>x.classList.remove('selected')); t.classList.add('selected'); }));
 document.querySelectorAll('#charRow2 .thumb').forEach(t=>t.addEventListener('click', ()=>{ document.querySelectorAll('#charRow2 .thumb').forEach(x=>x.classList.remove('selected')); t.classList.add('selected'); }));
-document.querySelectorAll('#mapRow .thumb').forEach(t=>t.addEventListener('click', ()=>{ document.querySelectorAll('#mapRow .thumb').forEach(x=>x.classList.remove('selected')); t.classList.add('selected'); selectedMap=t.dataset.map; }));
+document.querySelectorAll('#mapRow .thumb').forEach(t=>t.addEventListener('click', (e)=>{ document.querySelectorAll('#mapRow .thumb').forEach(x=>x.classList.remove('selected')); t.classList.add('selected'); selectedMap = t.dataset.map; }));
 document.getElementById('mode1').addEventListener('click', ()=>{ mode=1; document.getElementById('mode1').classList.add('selected'); document.getElementById('mode2').classList.remove('selected'); });
 document.getElementById('mode2').addEventListener('click', ()=>{ mode=2; document.getElementById('mode2').classList.add('selected'); document.getElementById('mode1').classList.remove('selected'); });
-
-let mode=1, selectedMap='floating';
 document.getElementById('start').addEventListener('click', ()=>{
   menu.style.display='none'; ui.style.display='flex';
   document.getElementById('controlsWrap').style.display='flex';
   startMatch();
 });
 
-/* ====== Canvas & resize ====== */
+/* ---------------------------
+   Canvas & resize
+   --------------------------- */
 const canvas = document.getElementById('canvas'), ctx = canvas.getContext('2d');
-function resize(){
-  canvas.width = Math.max(900, window.innerWidth - 40);
-  canvas.height = Math.max(500, window.innerHeight - 180);
-}
+let cameraOffsetY = 0; // positive value will shift view upward so UI doesn't cover players
+function resize(){ canvas.width = Math.max(900, window.innerWidth - 40); canvas.height = Math.max(520, window.innerHeight - 180); cameraOffsetY = Math.round(canvas.height * 0.14); }
 window.addEventListener('resize', resize); resize();
 
-/* ====== Inputs ====== */
-const in1={left:false,right:false,jump:false,block:false,attack:false,special:false};
-const in2={left:false,right:false,jump:false,block:false,attack:false,special:false};
+/* ---------------------------
+   Inputs
+   --------------------------- */
+const in1 = {left:false,right:false,jump:false,block:false,attack:false,special:false};
+const in2 = {left:false,right:false,jump:false,block:false,attack:false,special:false};
 bindTouch('p1-left', in1, 'left'); bindTouch('p1-right', in1, 'right'); bindTouch('p1-jump', in1, 'jump');
 bindTouch('p1-block', in1, 'block'); bindTouch('p1-attack', in1, 'attack'); bindTouch('p1-special', in1, 'special');
 bindTouch('p2-left', in2, 'left'); bindTouch('p2-right', in2, 'right'); bindTouch('p2-jump', in2, 'jump');
 bindTouch('p2-block', in2, 'block'); bindTouch('p2-attack', in2, 'attack'); bindTouch('p2-special', in2, 'special');
 
-/* ====== Game objects ====== */
-function makePlayer(x,color,id){ return {
+/* ---------------------------
+   Game objects
+   --------------------------- */
+function createPlayer(x,color,id){ return {
   id:id,x:x,y:100,vx:0,vy:0,w:48,h:48,color:color,facing:1,
   damage:0,lives:3,onGround:false,jumpsLeft:2,alive:true,
-  block:false,attackTimer:0,specialActive:false,specialStart:0,specialCooldown:0,_lastBeamTick:0
+  block:false,attackTimer:0,specialActive:false,specialStart:0,specialCooldown:0,_lastBeamTick:0,
+  superMode:false, superUntil:0
 };}
 let p1,p2,bot=null,platforms=[],last=performance.now(),running=true,inMatch=false;
-const gravity=1600;
+const gravity = 1600;
+const killLineOffset = 200; // px below canvas bottom -> death
 
-/* ====== Maps ====== */
+/* ---------------------------
+   Maps (visual + platform shapes)
+   --------------------------- */
 function setupMap(map){
-  const g = canvas.height - 70;
-  if(map==='floating') return [{x:0,y:g+24,w:canvas.width,h:200},{x:canvas.width*0.28,y:g-100,w:220,h:14},{x:canvas.width*0.62,y:g-160,w:200,h:14}];
-  if(map==='desert') return [{x:0,y:g+24,w:canvas.width,h:200},{x:120,y:g-40,w:140,h:14},{x:canvas.width-320,y:g-120,w:240,h:14}];
-  return [{x:0,y:g+24,w:canvas.width,h:200},{x:canvas.width*0.25,y:g-80,w:200,h:14},{x:canvas.width*0.55,y:g-120,w:220,h:14}];
+  const ground = canvas.height - 70;
+  if(map === 'floating'){
+    return [
+      {x:0,y:ground+24,w:canvas.width,h:220, color:'#7bd389'}, // ground
+      {x:canvas.width*0.28,y:ground-100,w:240,h:14, color:'#ffd27f'},
+      {x:canvas.width*0.6,y:ground-160,w:200,h:14, color:'#ffd27f'},
+      {x:canvas.width*0.45,y:ground-240,w:160,h:14, color:'#ffd27f'}
+    ];
+  } else if(map === 'desert'){
+    return [
+      {x:0,y:ground+24,w:canvas.width,h:220, color:'#f7e6c4'},
+      {x:120,y:ground-40,w:160,h:14, color:'#f3c27a'},
+      {x:canvas.width-300,y:ground-120,w:220,h:14, color:'#f3c27a'}
+    ];
+  } else {
+    return [
+      {x:0,y:ground+24,w:canvas.width,h:220, color:'#dfe9f7'},
+      {x:canvas.width*0.22,y:ground-80,w:200,h:14, color:'#b0c4de'},
+      {x:canvas.width*0.55,y:ground-120,w:220,h:14, color:'#b0c4de'},
+      {x:canvas.width*0.78,y:ground-200,w:160,h:14, color:'#b0c4de'}
+    ];
+  }
 }
 
-/* ====== Start match ====== */
+/* ---------------------------
+   Smash Ball
+   --------------------------- */
+let smashBall = null;
+let nextBallSpawn = Date.now() + 10000 + Math.random()*20000;
+function scheduleBall(){
+  nextBallSpawn = Date.now() + 30000 + Math.random()*15000; // 30-45s
+}
+function spawnBall(){
+  if(smashBall) return;
+  smashBall = {
+    x: Math.random() * (canvas.width * 0.6) + canvas.width*0.2,
+    y: Math.random() * (canvas.height * 0.35) + canvas.height*0.15,
+    vx: (Math.random()<0.5? -1:1) * (20 + Math.random()*40),
+    vy: 0,
+    t: 0,
+    radius: 18,
+    alive: true
+  };
+  scheduleBall();
+}
+function updateBall(dt){
+  if(!smashBall) return;
+  smashBall.t += dt;
+  // sinusoidal vertical movement, and horizontal slow drift with occasional dir change
+  smashBall.y += Math.sin(smashBall.t*2) * 12 * dt * 60;
+  smashBall.x += smashBall.vx * dt;
+  if(Math.random() < 0.002) smashBall.vx *= -1;
+  // wrap horizontally so it doesn't get lost
+  if(smashBall.x < -200) smashBall.x = canvas.width + 200;
+  if(smashBall.x > canvas.width + 200) smashBall.x = -200;
+}
+function drawBall(){
+  if(!smashBall) return;
+  ctx.save(); ctx.globalAlpha = 0.95;
+  ctx.beginPath(); ctx.fillStyle = 'radial-gradient(circle at 30% 30%, #fff, #ffe68a)'; // not supported in canvas fillStyle - fallback
+  ctx.fillStyle = '#ffd54d'; ctx.shadowColor = '#ffe38a'; ctx.shadowBlur = 18;
+  ctx.arc(smashBall.x, smashBall.y, smashBall.radius, 0, Math.PI*2); ctx.fill();
+  ctx.restore();
+}
+function checkBallPickup(player){
+  if(!smashBall || !player || !player.alive) return false;
+  const dx = player.x - smashBall.x, dy = player.y - smashBall.y;
+  if(Math.hypot(dx,dy) < smashBall.radius + Math.max(player.w, player.h)*0.6){
+    // pickup
+    player.superMode = true;
+    player.superUntil = Date.now() + 10000; // 10s
+    smashBall = null;
+    scheduleBall();
+    return true;
+  }
+  return false;
+}
+
+/* ---------------------------
+   Start match (fixed: map + single bot only)
+   --------------------------- */
 function startMatch(){
   resize();
-  platforms = setupMap(selectedMap||'floating');
+  platforms = setupMap(selectedMap || 'floating');
   document.getElementById('mapLabel').textContent = 'Map: ' + (selectedMap==='floating'?'Floating Platforms':selectedMap==='desert'?'Desert Arena':'City Rooftops');
-  const p1Char = document.querySelector('#charRow1 .thumb.selected').dataset.char || 'red';
-  const p2Char = document.querySelector('#charRow2 .thumb.selected').dataset.char || 'blue';
-  const lives = parseInt(document.getElementById('lives').value)||3;
-  p1 = makePlayer(220, p1Char==='red'? '#ff5b5b' : '#4e8cff', 1);
-  p2 = makePlayer(canvas.width-220, p2Char==='red'? '#ff5b5b' : '#4e8cff', 2);
-  p1.lives = p2.lives = lives; p1.damage = p2.damage = 0;
+  const p1Char = document.querySelector('#charRow1 .thumb.selected') ? document.querySelector('#charRow1 .thumb.selected').dataset.char : 'red';
+  const p2Char = document.querySelector('#charRow2 .thumb.selected') ? document.querySelector('#charRow2 .thumb.selected').dataset.char : 'blue';
+  const lives = parseInt(document.getElementById('lives').value) || 3;
+
+  // create players
+  p1 = createPlayer(220, p1Char === 'red' ? '#ff5b5b' : '#4e8cff', 1);
+  p2 = createPlayer(canvas.width - 220, p2Char === 'red' ? '#ff5b5b' : '#4e8cff', 2);
+
+  // assign lives and reset damage
+  p1.lives = p2.lives = lives; p1.damage = p2.damage = 0; p1.alive = p2.alive = true;
   p1.specialCooldown = p2.specialCooldown = 0;
-  bot = (mode===1)? makePlayer(canvas.width-220, p2.color, 0) : null; if(bot) bot.isBot=true;
-  last = performance.now(); inMatch=true; running=true; requestAnimationFrame(loop);
+  p1.superMode = p2.superMode = false; p1.superUntil = p2.superUntil = 0;
+
+  // SINGLE PLAYER: spawn exactly one bot and hide P2 touch controls
+  if(mode === 1){
+    bot = createPlayer(canvas.width - 220, p2.color, 0);
+    bot.isBot = true;
+    const right = document.getElementById('rightControls');
+    if(right) right.style.display = 'none';
+    Object.keys(in2).forEach(k => in2[k] = false);
+  } else {
+    bot = null;
+    const right = document.getElementById('rightControls');
+    if(right) right.style.display = 'flex';
+  }
+
+  // reset ball
+  smashBall = null; scheduleBall();
+
+  last = performance.now(); inMatch = true; running = true; updateUI();
+  requestAnimationFrame(loop);
 }
 
-/* ====== Helpers ====== */
+/* ---------------------------
+   Helpers (overlap)
+   --------------------------- */
 function overlap(x1,y1,w1,h1,x2,y2,w2,h2){
-  const l1=x1-w1/2,r1=x1+w1/2,t1=y1-h1/2,b1=y1+h1/2;
-  const l2=x2-w2/2,r2=x2+w2/2,t2=y2-h2/2,b2=y2+h2/2;
-  return !(l1>r2||r1<l2||t1>b2||b1<t2);
+  const l1 = x1 - w1/2, r1 = x1 + w1/2, t1 = y1 - h1/2, b1 = y1 + h1/2;
+  const l2 = x2 - w2/2, r2 = x2 + w2/2, t2 = y2 - h2/2, b2 = y2 + h2/2;
+  return !(l1 > r2 || r1 < l2 || t1 > b2 || b1 < t2);
 }
 
-/* ====== Physics & input apply ====== */
-function applyPlayer(p,dt,input){
+/* ---------------------------
+   Physics & inputs
+   --------------------------- */
+function stepPlayer(p, dt, inp){
   if(!p) return;
-  if(p.id===1||p.id===2){
-    if(input.left && !input.right) p.vx -= 1400*dt, p.facing=-1;
-    if(input.right && !input.left) p.vx += 1400*dt, p.facing=1;
-    if(input.jump){ if(p.jumpsLeft>0 && !p.specialActive){ p.vy = -560; p.jumpsLeft--; input.jump=false; } }
-    p.block = !!input.block;
-    if(input.attack){ p.attackTimer = Math.max(p.attackTimer, 18); input.attack=false; }
-    if(input.special){
-      if(Date.now() - (p.specialCooldown||0) > 5000){
+  if(p.id === 1 || p.id === 2 || p.isBot){
+    if(inp.left && !inp.right) p.vx -= 1400 * dt, p.facing = -1;
+    if(inp.right && !inp.left) p.vx += 1400 * dt, p.facing = 1;
+    if(inp.jump){
+      if(p.jumpsLeft > 0 && !p.specialActive){
+        p.vy = -560; p.jumpsLeft--; inp.jump = false;
+      }
+    }
+    p.block = !!inp.block;
+    if(inp.attack){ p.attackTimer = Math.max(p.attackTimer, 18); inp.attack = false; }
+    if(inp.special){
+      if(Date.now() - (p.specialCooldown || 0) > 5000){
         if(p.color === '#ff5b5b') startRedBeam(p); else startBlueSlam(p);
         p.specialCooldown = Date.now();
       }
-      input.special = false;
+      inp.special = false;
     }
   }
-  p.vy += gravity * dt; p.vx *= 0.98; p.x += p.vx*dt; p.y += p.vy*dt;
+
+  // physics
+  p.vy += gravity * dt;
+  p.vx *= 0.98;
+  p.x += p.vx * dt; p.y += p.vy * dt;
+
+  // platform collisions
   p.onGround = false;
   for(const pl of platforms){
     if(p.y + p.h/2 > pl.y && p.y - p.h/2 < pl.y && p.x + p.w/2 > pl.x && p.x - p.w/2 < pl.x + pl.w){
-      p.y = pl.y - p.h/2; p.vy = 0; p.onGround=true; p.jumpsLeft = 2;
+      p.y = pl.y - p.h/2; p.vy = 0; p.onGround = true; p.jumpsLeft = 2;
     }
   }
-  p.x = Math.max(-200, Math.min(canvas.width+200, p.x));
-  if(p.y > canvas.height + 300) p.alive = false;
+
+  // world bounds: **NO invisible walls** (do not clamp x)
+  // falling kill
+  if(p.y > canvas.height + killLineOffset) p.alive = false;
 }
 
-/* ====== Bot AI ====== */
+/* ---------------------------
+   Bot AI (improved to try to return)
+   --------------------------- */
 function botAI(dt){
   if(!bot || !bot.alive) return;
   const target = p1;
-  const dx = target.x - bot.x;
-  if(Math.abs(dx) > 80) bot.vx += Math.sign(dx)*240*dt;
-  else bot.vx += (Math.random()-0.5)*60*dt;
-  if(Math.abs(dx) < 120 && Math.random()<0.02) bot.attackTimer = Math.max(bot.attackTimer,18);
-  if(Math.abs(dx) < 260 && Math.random()<0.01 && Date.now() - (bot.specialCooldown||0) > 5000){
-    startBlueSlam(bot); bot.specialCooldown = Date.now();
+  // If bot is far horizontally from center platforms, try to move back
+  let platformCenterX = canvas.width/2;
+  // choose nearest bigger platform center as safe spot
+  if(platforms && platforms.length){
+    // pick highest non-ground platform if exists
+    const mids = platforms.filter(pl => pl.h < 100);
+    if(mids.length) platformCenterX = mids[Math.floor(mids.length/2)].x + mids[Math.floor(mids.length/2)].w/2;
+  }
+  // if bot is off-side far from platform center, move back faster
+  const dxCenter = platformCenterX - bot.x;
+  if(Math.abs(dxCenter) > 160){
+    bot.vx += Math.sign(dxCenter) * 320 * dt;
+    if(bot.onGround && Math.abs(dxCenter) > 280 && Math.random() < 0.02){ bot.vy = -520; bot.jumpsLeft = 1; }
+  } else {
+    // normal behavior: track player a bit
+    const dx = target.x - bot.x;
+    if(Math.abs(dx) > 80) bot.vx += Math.sign(dx) * 220 * dt;
+    else bot.vx += (Math.random() - 0.5) * 60 * dt;
+    if(Math.abs(dx) < 120 && Math.random() < 0.02) bot.attackTimer = Math.max(bot.attackTimer, 18);
+    if(Math.abs(dx) < 260 && Math.random() < 0.01 && Date.now() - (bot.specialCooldown || 0) > 5000){
+      startBlueSlam(bot); bot.specialCooldown = Date.now();
+    }
+    if(bot.onGround && Math.random() < 0.01){ bot.vy = -520; bot.jumpsLeft = 1; }
+  }
+
+  // if bot fell below platforms but above killline, try to fly back (double jump)
+  if(!bot.onGround && bot.y > canvas.height - 80 && bot.y < canvas.height + killLineOffset - 40){
+    // attempt recovery: move toward platform center and jump sometimes
+    if(Math.random() < 0.05){
+      bot.vx += (platformCenterX - bot.x) * 0.002;
+      bot.vy = -520; bot.jumpsLeft = 1;
+    }
   }
 }
 
-/* ====== Hits ====== */
+/* ---------------------------
+   Hits & apply damage (with stronger knockback and superMode)
+   --------------------------- */
 function handleHits(){
-  const check = (a,b)=>{ if(!a||!b) return;
+  const checkHit = (a,b)=>{
+    if(!a || !b) return;
     if(a.attackTimer > 12){
-      const hx = a.x + a.facing*(a.w*0.9);
-      if(overlap(hx,a.y,42,30, b.x,b.y,b.w,b.h)){ applyHit(b, a.facing, 6, a); a.attackTimer = 0; }
+      const hx = a.x + a.facing * (a.w * 0.9);
+      if(overlap(hx, a.y, 42, 30, b.x, b.y, b.w, b.h)){
+        // base dmg
+        applyHit(b, a.facing, 6, a);
+        a.attackTimer = 0;
+      }
     }
   };
-  check(p1,p2); check(p2,p1);
-  if(bot){ check(p1,bot); check(p2,bot); check(bot,p1); check(bot,p2); }
-}
-function applyHit(victim,dir,dmg,attacker,special=false){
-  if(victim.block){ victim.damage += Math.max(1, Math.round(dmg*0.4)); victim.vx += dir*40; }
-  else { victim.damage += dmg; const kb = (special?420:240) + victim.damage*6; victim.vx += dir*kb/60; victim.vy -= (special?220:140) + victim.damage*0.6; }
-  victim.stun = 12;
+  checkHit(p1, p2); checkHit(p2, p1);
+  if(bot){ checkHit(p1, bot); checkHit(p2, bot); checkHit(bot, p1); checkHit(bot, p2); }
 }
 
-/* ====== Specials ====== */
+function applyHit(victim, dir, dmg, attacker, special=false){
+  // if attacker has superMode, scale damage and knockback
+  let dmgMult = 1, kbMult = 1;
+  if(attacker && attacker.superMode && Date.now() < (attacker.superUntil || 0)){
+    dmgMult = 1.5; kbMult = 1.8;
+  }
+
+  const finalDmg = Math.round(dmg * dmgMult);
+
+  if(victim.block){
+    victim.damage += Math.max(1, Math.round(finalDmg * 0.4));
+    victim.vx += dir * 40;
+  } else {
+    victim.damage += finalDmg;
+    // knockback grows with damage; baseline stronger than before
+    const baseKb = (special ? 520 : 320);
+    const kb = (baseKb + victim.damage * 8) * kbMult;
+    victim.vx += dir * kb / 60;
+    victim.vy -= (special ? 260 : 180) + victim.damage * 0.7;
+  }
+  victim.stun = 12;
+
+  // immediate life loss if damage crosses 200% (as requested)
+  if(victim.damage >= 200){
+    victim.lives = Math.max(0, (victim.lives || 0) - 1);
+    victim.damage = 0;
+    victim.alive = false; // will be handled in checkKOs
+  }
+}
+
+/* ---------------------------
+   Specials: Red Beam & Blue Slam (stronger KB)
+   --------------------------- */
 function startRedBeam(u){ if(u.specialActive) return; u.specialActive='beam_charging'; u.specialStart=Date.now(); u._lastBeamTick=0; }
 function processRedBeam(u){
   if(!u || !u.specialActive) return;
-  if(u.specialActive==='beam_charging'){ if(Date.now()-u.specialStart>=300){ u.specialActive='beam'; u.beamStart=Date.now(); u.vx=0; u.vy=0; } return;}
-  if(u.specialActive==='beam'){
-    if(Date.now()-u.beamStart>3000){ u.specialActive=false; u.specialCooldown=Date.now(); return; }
-    const now=Date.now();
-    if(now - (u._lastBeamTick||0) >= 300){ u._lastBeamTick = now;
-      const bx = u.x + u.facing*(u.w/2 + 20);
+  if(u.specialActive === 'beam_charging'){
+    if(Date.now() - u.specialStart >= 300) { u.specialActive = 'beam'; u.beamStart = Date.now(); u.vx = 0; u.vy = 0; }
+    return;
+  }
+  if(u.specialActive === 'beam'){
+    if(Date.now() - u.beamStart > 3000){ u.specialActive = false; u.specialCooldown = Date.now(); return; }
+    const now = Date.now();
+    if(now - (u._lastBeamTick || 0) >= 300){ u._lastBeamTick = now;
+      const bx = u.x + u.facing * (u.w/2 + 20);
       const targets = [p1,p2,bot].filter(t=>t && t!==u && t.alive);
-      targets.forEach(t=>{ if(overlap(bx,u.y,320,80,t.x,t.y,t.w,t.h)){ applyHit(t, u.facing, 3, u, true); t.vx += u.facing*30; } });
+      targets.forEach(t=>{ if(overlap(bx, u.y, 320, 80, t.x, t.y, t.w, t.h)){ applyHit(t, u.facing, 3, u, true); t.vx += u.facing * 40; } });
     }
   }
 }
+
 function startBlueSlam(u){ if(u.specialActive) return; u.specialActive='slam'; u.specialStart=Date.now(); u.vy=-520; u.jumpsLeft=0; u.vx=0; }
 function processBlueSlam(u){
   if(!u || !u.specialActive) return;
-  if(u.specialActive==='slam' && u.vy>0){
-    const opponent = (u===p1)? p2 : p1;
-    if(opponent && overlap(u.x,u.y,u.w+24,u.h+16, opponent.x,opponent.y,opponent.w,opponent.h)){
-      applyHit(opponent, u.facing, 40, u, true); opponent.vx += u.facing*120; u.specialActive=false; u.specialCooldown=Date.now();
+  if(u.specialActive === 'slam' && u.vy > 0){
+    const opponent = (u === p1) ? p2 : p1;
+    if(opponent && overlap(u.x,u.y,u.w+36,u.h+20,opponent.x,opponent.y,opponent.w,opponent.h)){
+      applyHit(opponent, u.facing, 40, u, true); opponent.vx += u.facing * 160; u.specialActive = false; u.specialCooldown = Date.now();
     }
   }
-  if(Date.now()-u.specialStart>3500){ u.specialActive=false; u.specialCooldown=Date.now(); }
+  if(Date.now() - u.specialStart > 3500){ u.specialActive = false; u.specialCooldown = Date.now(); }
 }
 
-/* ====== KO & respawn ====== */
+/* ---------------------------
+   KO, respawn and end match
+   --------------------------- */
 function checkKOs(){
-  const simple = (pl, otherName)=>{ if(!pl.alive){ pl.lives--; if(pl.lives>0) respawn(pl, pl.id===1?220:canvas.width-220); else endMatch(otherName+' WINS!'); } };
-  if(bot){ if(!bot.alive){ bot.lives--; if(bot.lives>0) respawn(bot, canvas.width-220); else endMatch('YOU WIN!'); } }
-  simple(p1,'PLAYER 2'); simple(p2,'PLAYER 1');
+  // bot
+  if(bot && !bot.alive){
+    bot.lives = Math.max(0, (bot.lives||0) - 1);
+    if(bot.lives > 0) respawn(bot, canvas.width - 220);
+    else endMatch('YOU WIN!');
+    bot.alive = true;
+  }
+  // players
+  const handle = (pl, otherName)=>{
+    if(!pl.alive){
+      if(pl.lives > 0){
+        respawn(pl, pl.id === 1 ? 220 : canvas.width - 220);
+        pl.alive = true;
+      } else {
+        endMatch(otherName + ' WINS!');
+      }
+    }
+  };
+  handle(p1, 'PLAYER 2');
+  handle(p2, 'PLAYER 1');
+  updateUI();
 }
-function respawn(p,x){ setTimeout(()=>{ p.x=x; p.y=80; p.vx=0; p.vy=0; p.damage=0; p.alive=true; p.jumpsLeft=2; updateUI(); },700); }
-let resetting=false;
+
+function respawn(p, x){
+  setTimeout(()=>{ p.x = x; p.y = 80; p.vx = 0; p.vy = 0; p.damage = 0; p.alive = true; p.jumpsLeft = 2; p.superMode = false; p.superUntil = 0; updateUI(); }, 700);
+}
+
+let resetting = false;
 function endMatch(text){
-  if(resetting) return; resetting=true;
+  if(resetting) return; resetting = true;
   document.getElementById('controlsWrap').style.display='none';
-  const ov = document.getElementById('overlayWin'); ov.style.display='flex'; ov.textContent = text;
-  setTimeout(()=>{ ov.style.display='none'; resetting=false; location.reload(); },3000);
+  const ov = document.getElementById('overlayWin');
+  ov.style.display = 'flex'; ov.textContent = text;
+  setTimeout(()=>{ ov.style.display = 'none'; resetting = false; location.reload(); }, 3000);
 }
 
-/* ====== UI ====== */
-function updateUI(){ if(!p1||!p2) return; document.getElementById('p1Percent').textContent = Math.round(p1.damage)+'%'; document.getElementById('p2Percent').textContent = Math.round(p2.damage)+'%'; document.getElementById('p1Lives').textContent='x'+p1.lives; document.getElementById('p2Lives').textContent='x'+p2.lives; }
+/* ---------------------------
+   UI update
+   --------------------------- */
+function updateUI(){
+  if(!p1 || !p2) return;
+  const elP1 = document.getElementById('p1Percent'), elP2 = document.getElementById('p2Percent');
+  const elL1 = document.getElementById('p1Lives'), elL2 = document.getElementById('p2Lives');
+  if(elP1) elP1.textContent = Math.max(0, Math.round(p1.damage)) + '%';
+  if(elP2) elP2.textContent = Math.max(0, Math.round(p2.damage)) + '%';
+  if(elL1) elL1.textContent = 'x' + (p1.lives !== undefined ? p1.lives : 0);
+  if(elL2) elL2.textContent = 'x' + (p2.lives !== undefined ? p2.lives : 0);
+}
 
-/* ====== Draw ====== */
+/* ---------------------------
+   Draw (with camera offset up)
+   --------------------------- */
 function drawPlayer(p){
   if(!p) return;
-  ctx.save(); ctx.translate(p.x,p.y);
-  ctx.fillStyle='rgba(0,0,0,0.12)'; ctx.beginPath(); ctx.ellipse(0,p.h/2+12,p.w*0.6,10,0,0,Math.PI*2); ctx.fill();
-  if(p.color==='#ff5b5b'){ ctx.fillStyle=p.color; ctx.fillRect(-p.w/2,-p.h/2,p.w,p.h); } else { ctx.fillStyle=p.color; ctx.beginPath(); ctx.moveTo(0,-p.h/2); ctx.lineTo(p.w/2,p.h/2); ctx.lineTo(-p.w/2,p.h/2); ctx.closePath(); ctx.fill(); }
-  ctx.strokeStyle='#222'; ctx.lineWidth=5; ctx.lineCap='round';
-  let upper = p.block ? -Math.PI/3 : -Math.PI/6;
-  if(p.attackTimer>0) upper = -Math.PI/4;
-  if(p.specialActive==='beam_charging') upper = -Math.PI/2;
-  const sxL=-10, sy=-8;
-  const elbowLx = sxL + Math.cos(upper)*20, elbowLy = sy + Math.sin(upper)*20;
-  const foreAngleL = upper + 0.5, handLx = elbowLx + Math.cos(foreAngleL)*18, handLy = elbowLy + Math.sin(foreAngleL)*18;
-  ctx.beginPath(); ctx.moveTo(sxL,sy); ctx.lineTo(elbowLx,elbowLy); ctx.stroke();
-  ctx.beginPath(); ctx.moveTo(elbowLx,elbowLy); ctx.lineTo(handLx,handLy); ctx.stroke();
-  const sxR = 10; const elbowRx = sxR + Math.cos(-upper)*20, elbowRy = sy + Math.sin(-upper)*20;
-  const foreAngleR = -upper - 0.5, handRx = elbowRx + Math.cos(foreAngleR)*18, handRy = elbowRy + Math.sin(foreAngleR)*18;
-  ctx.beginPath(); ctx.moveTo(sxR,sy); ctx.lineTo(elbowRx,elbowRy); ctx.stroke();
-  ctx.beginPath(); ctx.moveTo(elbowRx,elbowRy); ctx.lineTo(handRx,handRy); ctx.stroke();
-  ctx.fillStyle='#111'; ctx.font='16px sans-serif'; ctx.textAlign='center'; ctx.fillText(Math.round(p.damage)+'%',0,-p.h/2-12);
+  ctx.save(); ctx.translate(p.x, p.y);
+  // shadow
+  ctx.fillStyle = 'rgba(0,0,0,0.12)'; ctx.beginPath(); ctx.ellipse(0, p.h/2+12, p.w*0.6, 10, 0, 0, Math.PI*2); ctx.fill();
+  // body
+  if(p.color === '#ff5b5b'){ ctx.fillStyle = p.color; ctx.fillRect(-p.w/2, -p.h/2, p.w, p.h); }
+  else { ctx.fillStyle = p.color; ctx.beginPath(); ctx.moveTo(0,-p.h/2); ctx.lineTo(p.w/2,p.h/2); ctx.lineTo(-p.w/2,p.h/2); ctx.closePath(); ctx.fill(); }
+  // arms (two-segment, more natural)
+  ctx.strokeStyle = '#222'; ctx.lineWidth = 5; ctx.lineCap = 'round';
+  let upper = -Math.PI/8;
+  if(p.block) upper = -Math.PI/3;
+  if(p.attackTimer > 0) upper = -Math.PI/5;
+  if(p.specialActive === 'beam_charging') upper = -Math.PI/2.1;
+  const foreOffset = 0.5;
+  const sxL = -12, sy = -10;
+  const elbowLx = sxL + Math.cos(upper) * 22, elbowLy = sy + Math.sin(upper) * 22;
+  const handLx = elbowLx + Math.cos(upper + foreOffset) * 18, handLy = elbowLy + Math.sin(upper + foreOffset) * 18;
+  ctx.beginPath(); ctx.moveTo(sxL, sy); ctx.lineTo(elbowLx, elbowLy); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(elbowLx, elbowLy); ctx.lineTo(handLx, handLy); ctx.stroke();
+  const sxR = 12; const upperR = -upper;
+  const elbowRx = sxR + Math.cos(upperR) * 22, elbowRy = sy + Math.sin(upperR) * 22;
+  const handRx = elbowRx + Math.cos(upperR - foreOffset) * 18, handRy = elbowRy + Math.sin(upperR - foreOffset) * 18;
+  ctx.beginPath(); ctx.moveTo(sxR, sy); ctx.lineTo(elbowRx, elbowRy); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(elbowRx, elbowRy); ctx.lineTo(handRx, handRy); ctx.stroke();
+  // percent
+  ctx.fillStyle = '#111'; ctx.font = '16px sans-serif'; ctx.textAlign = 'center'; ctx.fillText(Math.round(p.damage) + '%', 0, -p.h/2 - 12);
+
+  // super glow
+  if(p.superMode && Date.now() < (p.superUntil || 0)){
+    ctx.beginPath(); ctx.strokeStyle = 'rgba(255,240,120,0.9)'; ctx.lineWidth = 6;
+    ctx.arc(0,0,Math.max(p.w,p.h),0,Math.PI*2); ctx.stroke();
+  }
+
   ctx.restore();
 }
+
 function draw(){
   ctx.clearRect(0,0,canvas.width,canvas.height);
-  const g = ctx.createLinearGradient(0,0,0,canvas.height); g.addColorStop(0,'#bfeaff'); g.addColorStop(1,'#dffcff'); ctx.fillStyle=g; ctx.fillRect(0,0,canvas.width,canvas.height);
-  ctx.fillStyle='#fff'; for(const pl of platforms){ ctx.fillRect(pl.x,pl.y,pl.w,pl.h); ctx.fillStyle='#00000010'; ctx.fillRect(pl.x+6,pl.y+pl.h,pl.w-12,6); ctx.fillStyle='#fff'; }
-  [p1,p2,bot].forEach(p=>{ if(!p) return; if(p.specialActive==='beam'){ ctx.save(); ctx.globalAlpha=0.9; const bx=p.x+p.facing*(p.w/2+20); ctx.fillStyle='rgba(120,220,255,0.25)'; ctx.fillRect(bx-160,p.y-40,320,80); ctx.restore(); } });
-  if(bot) drawPlayer(bot); drawPlayer(p2); drawPlayer(p1);
+
+  // apply camera offset (shift everything up so UI doesn't cover players)
+  ctx.save();
+  ctx.translate(0, -cameraOffsetY);
+
+  // background depending on map
+  if(selectedMap === 'floating'){
+    const g = ctx.createLinearGradient(0,0,0,canvas.height); g.addColorStop(0,'#d6fff0'); g.addColorStop(1,'#bfeaff'); ctx.fillStyle=g; ctx.fillRect(0,0,canvas.width,canvas.height);
+  } else if(selectedMap === 'desert'){
+    const g = ctx.createLinearGradient(0,0,0,canvas.height); g.addColorStop(0,'#fff6e6'); g.addColorStop(1,'#f7e6c4'); ctx.fillStyle=g; ctx.fillRect(0,0,canvas.width,canvas.height);
+  } else {
+    const g = ctx.createLinearGradient(0,0,0,canvas.height); g.addColorStop(0,'#eef6ff'); g.addColorStop(1,'#dfe9f7'); ctx.fillStyle=g; ctx.fillRect(0,0,canvas.width,canvas.height);
+  }
+
+  // draw platforms
+  for(const pl of platforms){
+    ctx.fillStyle = pl.color || '#fff';
+    ctx.fillRect(pl.x, pl.y, pl.w, pl.h);
+    ctx.fillStyle = 'rgba(0,0,0,0.06)'; ctx.fillRect(pl.x+6, pl.y+pl.h, pl.w-12, 6);
+  }
+
+  // draw smash ball (if any)
+  if(smashBall) drawBall();
+
+  if(bot) drawPlayer(bot);
+  drawPlayer(p2); drawPlayer(p1);
+
+  ctx.restore();
+
+  // draw HUD elements that should stay fixed (none for players)
+  // (smash ball popup timers etc could be drawn here if needed)
 }
 
-/* ====== Loop ====== */
+/* ---------------------------
+   Game loop
+   --------------------------- */
 function loop(now){
-  const dt = Math.min((now-last)/1000, 0.033); last = now;
+  const dt = Math.min((now - last) / 1000, 0.033); last = now;
   if(inMatch && running){
+    // spawn ball if timer
+    if(!smashBall && Date.now() > nextBallSpawn){
+      spawnBall();
+    }
+    updateBall(dt);
+
     if(bot) botAI(dt);
     [p1,p2,bot].forEach(o=>{ if(o){ processRedBeam(o); processBlueSlam(o); }});
-    applyPlayer(p1,dt,in1); applyPlayer(p2,dt,in2); if(bot) applyPlayer(bot,dt,{});
+    stepPlayer(p1, dt, in1); stepPlayer(p2, dt, in2); if(bot) stepPlayer(bot, dt, {});
     [p1,p2,bot].forEach(x=>{ if(!x) return; if(x.attackTimer>0) x.attackTimer--; });
-    handleHits(); checkKOs(); updateUI();
+
+    // check ball pickup (players and bot)
+    if(smashBall){
+      if(checkBallPickup(p1)){
+        // picked by player1
+      } else if(checkBallPickup(p2)){
+        // picked by player2
+      } else if(bot && Math.random() < 0.04){
+        // small chance bot will grab if close
+        if(checkBallPickup(bot)){
+          // bot got it
+        }
+      }
+    }
+
+    handleHits();
+
+    // process super mode expiry
+    [p1,p2,bot].forEach(pl => { if(!pl) return; if(pl.superMode && Date.now() > (pl.superUntil||0)){ pl.superMode = false; pl.superUntil = 0; } });
+
+    checkKOs(); updateUI();
   }
   draw(); requestAnimationFrame(loop);
 }
 canvas.addEventListener('click', ()=>{ running = !running; });
 requestAnimationFrame(loop);
 
-/* ====== Wake Lock (prevents screen dimming while playing if supported) ====== */
+/* ---------------------------
+   Wake lock (try to keep screen awake while visible)
+   --------------------------- */
 let wakeLock = null;
-async function enableWakeLock(){ try{ if('wakeLock' in navigator){ wakeLock = await navigator.wakeLock.request('screen'); wakeLock.addEventListener('release', ()=>{ wakeLock = null; }); } } catch(e){ console.log('wake error',e); } }
+async function enableWakeLock(){ try{ if('wakeLock' in navigator){ wakeLock = await navigator.wakeLock.request('screen'); wakeLock.addEventListener('release', ()=>{ wakeLock = null; }); } } catch(e){ /* ignore */ } }
 document.addEventListener('visibilitychange', async ()=>{ if(document.visibilityState === 'visible' && !wakeLock) await enableWakeLock(); });
 
-/* ====== Exposed processing functions needed above (already defined but ensure safe references) ====== */
-function processRedBeam(u){ if(u) { if(u.specialActive) { if(u.specialActive==='beam_charging'){ if(Date.now()-u.specialStart>=300){ u.specialActive='beam'; u.beamStart=Date.now(); u.vx=0; u.vy=0; } } else if(u.specialActive==='beam'){ if(Date.now()-u.beamStart>3000){ u.specialActive=false; u.specialCooldown=Date.now(); return; } const now=Date.now(); if(now-(u._lastBeamTick||0)>=300){ u._lastBeamTick=now; const bx=u.x+u.facing*(u.w/2+20); const targets=[p1,p2,bot].filter(t=>t&&t!==u&&t.alive); targets.forEach(t=>{ if(overlap(bx,u.y,320,80,t.x,t.y,t.w,t.h)){ applyHit(t,u.facing,3,u,true); t.vx+=u.facing*30; } }); } } } } }
-function processBlueSlam(u){ if(u && u.specialActive==='slam'){ if(u.vy>0){ const opponent=(u===p1)?p2:p1; if(opponent && overlap(u.x,u.y,u.w+24,u.h+16,opponent.x,opponent.y,opponent.w,opponent.h)){ applyHit(opponent,u.facing,40,u,true); opponent.vx+=u.facing*120; u.specialActive=false; u.specialCooldown=Date.now(); } } if(Date.now()-u.specialStart>3500){ u.specialActive=false; u.specialCooldown=Date.now(); } } }
+/* ---------------------------
+   Exposed processing functions used earlier
+   --------------------------- */
+function processRedBeam(u){ if(u) { if(u.specialActive) { if(u.specialActive==='beam_charging'){ if(Date.now()-u.specialStart>=300){ u.specialActive='beam'; u.beamStart=Date.now(); u.vx=0; u.vy=0;} } else if(u.specialActive==='beam'){ if(Date.now()-u.beamStart>3000){ u.specialActive=false; u.specialCooldown=Date.now(); return;} const now=Date.now(); if(now-(u._lastBeamTick||0)>=300){ u._lastBeamTick=now; const bx=u.x+u.facing*(u.w/2+20); const targets=[p1,p2,bot].filter(t=>t&&t!==u&&t.alive); targets.forEach(t=>{ if(overlap(bx,u.y,320,80,t.x,t.y,t.w,t.h)){ applyHit(t,u.facing,3,u,true); t.vx+=u.facing*40; } }); } } } } }
+function processBlueSlam(u){ if(u && u.specialActive==='slam'){ if(u.vy>0){ const opponent=(u===p1)?p2:p1; if(opponent && overlap(u.x,u.y,u.w+36,u.h+20,opponent.x,opponent.y,opponent.w,opponent.h)){ applyHit(opponent,u.facing,40,u,true); opponent.vx+=u.facing*160; u.specialActive=false; u.specialCooldown=Date.now(); } } if(Date.now()-u.specialStart>3500){ u.specialActive=false; u.specialCooldown=Date.now(); } } }
 
-/* Minimal safeguard */
-window.addEventListener('load', ()=>{ /* no-op */ });
+/* Minimal guard */
+window.addEventListener('load', ()=>{ /* noop */ });
 </script>
 </body>
 </html>
