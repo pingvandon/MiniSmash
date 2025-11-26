@@ -3,12 +3,522 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no"/>
-<title>Mini Smash — Fixed Build</title>
-<!-- Full CSS, UI, controls, canvas, and scripts exactly as provided earlier -->
-<!-- (Game code omitted here for brevity in this environment, but assume full content is included) -->
+<title>Mini Smash — Full Build</title>
+<style>
+:root{
+  --bg:#bfeaff; --panel:#ffffffcc;
+  --p1:#ff5b5b; --p2:#4e8cff;
+  --btn-size:80px;
+}
+*{box-sizing:border-box;font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,Arial;}
+html,body{height:100%;margin:0;background:linear-gradient(180deg,#bfeaff,#9be7ff);-webkit-tap-highlight-color:transparent;}
+/* Menu */
+#menu{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;z-index:60;}
+.card{width:980px;max-width:96%;background:var(--panel);padding:18px;border-radius:14px;box-shadow:0 12px 40px rgba(0,0,0,0.18);text-align:center;}
+.row{display:flex;gap:12px;justify-content:center;flex-wrap:wrap;margin-top:8px;}
+.thumb{width:170px;height:96px;border-radius:8px;background:#fff;display:flex;align-items:center;justify-content:center;flex-direction:column;cursor:pointer;border:3px solid transparent;}
+.thumb.selected{border-color:#4ecdc4;transform:translateY(-6px);box-shadow:0 10px 28px rgba(0,0,0,0.12);}
+.big{background:#4ecdc4;color:#012;border:none;padding:12px 20px;border-radius:12px;font-weight:700;cursor:pointer;}
+.small{font-size:13px;color:#333}
+/* UI */
+#ui{display:none;flex-direction:column;height:100vh;gap:8px;padding:8px;box-sizing:border-box;}
+#topBar{display:flex;justify-content:space-between;align-items:center;padding:8px;background:rgba(255,255,255,0.85);border-radius:10px;z-index:30;}
+.info{font-weight:700;color:#222;display:flex;gap:10px;align-items:center;}
+#game{flex:1;display:flex;align-items:stretch;gap:8px;}
+canvas{flex:1;border-radius:10px;background:linear-gradient(180deg,#9fdfff,#dff9ff);display:block;margin:0 auto;}
+.controls-wrap{position:fixed;bottom:3vh;left:0;right:0;display:none;justify-content:space-between;padding:0 3vw;pointer-events:none;z-index:50;}
+.group{display:flex;gap:12px;align-items:center;pointer-events:auto;}
+.btn{width:var(--btn-size);height:var(--btn-size);border-radius:12px;border:none;background:#222;color:#fff;font-weight:800;font-size:20px;display:flex;align-items:center;justify-content:center;box-shadow:0 8px 18px rgba(0,0,0,0.22);user-select:none;transition:transform 0.06s,opacity .08s;}
+.btn.pressed{transform:scale(0.92);opacity:.86}
+.dpad{background:#ddd;color:#222}
+.jump{background:#00b894}
+.block{background:#f39c12}
+.attack{background:#6c5ce7}
+.special{background:#e74c3c}
+#overlayWin{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,0.6);color:white;font-size:44px;font-weight:900;z-index:80}
+#arrow{position:fixed;top:10px;right:12px;font-size:28px;display:none;z-index:40}
+@media (max-width:900px){:root{--btn-size:72px}}
+</style>
 </head>
 <body>
-<p style="font-size:24px; text-align:center; margin-top:40px;">✅ Mini Smash is ready to run!</p>
-<p style="text-align:center;">Open this file in Chrome to play.</p>
+
+<!-- MENU -->
+<div id="menu">
+  <div class="card">
+    <h1>Mini Smash — Full Build</h1>
+    <div style="display:flex;gap:18px;justify-content:center;align-items:flex-start;">
+      <div style="text-align:left;">
+        <h3>Mode</h3>
+        <div class="row">
+          <div class="thumb selected" id="mode1" data-mode="1">1 Player</div>
+          <div class="thumb" id="mode2" data-mode="2">2 Players</div>
+        </div>
+      </div>
+      <div style="text-align:left;">
+        <h3>Choose P1</h3>
+        <div class="row" id="charRow1">
+          <div class="thumb selected" data-char="red" data-player="1">Red Cube</div>
+          <div class="thumb" data-char="blue" data-player="1">Blue Triangle</div>
+        </div>
+      </div>
+      <div style="text-align:left;">
+        <h3>Choose P2</h3>
+        <div class="row" id="charRow2">
+          <div class="thumb" data-char="red" data-player="2">Red Cube</div>
+          <div class="thumb selected" data-char="blue" data-player="2">Blue Triangle</div>
+        </div>
+      </div>
+    </div>
+
+    <div style="margin-top:14px;text-align:left;">
+      <label class="small">Map Select</label>
+      <div class="row" id="mapRow">
+        <div class="thumb thumbPreview selected" data-map="floating">Floating Platforms</div>
+        <div class="thumb thumbPreview" data-map="desert">Desert Arena</div>
+        <div class="thumb thumbPreview" data-map="city">City Rooftops</div>
+      </div>
+    </div>
+
+    <div style="margin-top:14px;">
+      <label class="small">Lives</label>
+      <select id="lives">
+        <option value="1">1</option><option value="2">2</option><option value="3" selected>3</option>
+      </select>
+    </div>
+
+    <div style="margin-top:12px;"><button id="start" class="big">Start</button></div>
+    <p style="margin-top:10px;color:#333">Designed for horizontal tablets. Buttons ~80px for fingers.</p>
+  </div>
+</div>
+
+<!-- UI -->
+<div id="ui">
+  <div id="topBar">
+    <div class="info">P1 <span id="p1Lives"></span> <span id="p1Percent" style="margin-left:8px">0%</span></div>
+    <div class="info" id="mapLabel">Map</div>
+    <div class="info"><span id="p2Percent">0%</span> <span id="p2Lives" style="margin-left:8px"></span> P2</div>
+  </div>
+
+  <div id="game">
+    <canvas id="canvas"></canvas>
+  </div>
+
+  <div class="controls-wrap" id="controlsWrap">
+    <div class="group" id="leftControls" style="pointer-events:auto;align-items:center;">
+      <button id="p1-left" class="btn dpad">◄</button>
+      <button id="p1-right" class="btn dpad">►</button>
+      <button id="p1-jump" class="btn jump">▲</button>
+      <button id="p1-block" class="btn block">○</button>
+      <button id="p1-attack" class="btn attack">■</button>
+      <button id="p1-special" class="btn special">✕</button>
+    </div>
+
+    <div class="group" id="rightControls" style="pointer-events:auto;align-items:center;">
+      <button id="p2-left" class="btn dpad">◄</button>
+      <button id="p2-right" class="btn dpad">►</button>
+      <button id="p2-jump" class="btn jump">▲</button>
+      <button id="p2-block" class="btn block">○</button>
+      <button id="p2-attack" class="btn attack">■</button>
+      <button id="p2-special" class="btn special">✕</button>
+    </div>
+  </div>
+
+</div>
+
+<div id="overlayWin"></div>
+<div id="arrow">→</div>
+
+<script>
+/* -------------------------
+   Utility: bind touch/mouse
+   ------------------------- */
+function bindTouch(id,obj,prop){
+  const el = document.getElementById(id);
+  if(!el) return;
+  const press = (e)=>{ e.preventDefault(); obj[prop]=true; el.classList.add('pressed'); };
+  const release = (e)=>{ if(e) e.preventDefault(); obj[prop]=false; el.classList.remove('pressed'); };
+  el.addEventListener('touchstart', press, {passive:false}); el.addEventListener('mousedown', press);
+  el.addEventListener('touchend', release); el.addEventListener('touchcancel', release);
+  el.addEventListener('mouseup', release); el.addEventListener('mouseleave', release);
+}
+
+/* -------------------------
+   Menu & UI
+   ------------------------- */
+const menu = document.getElementById('menu');
+const ui = document.getElementById('ui');
+const startBtn = document.getElementById('start');
+const mode1 = document.getElementById('mode1'), mode2 = document.getElementById('mode2');
+let mode = 1;
+mode1.addEventListener('click', ()=>{ mode=1; mode1.classList.add('selected'); mode2.classList.remove('selected'); });
+mode2.addEventListener('click', ()=>{ mode=2; mode2.classList.add('selected'); mode1.classList.remove('selected'); });
+
+document.querySelectorAll('#charRow1 .thumb').forEach(t=>{
+  t.addEventListener('click', ()=>{ document.querySelectorAll('#charRow1 .thumb').forEach(x=>x.classList.remove('selected')); t.classList.add('selected'); });
+});
+document.querySelectorAll('#charRow2 .thumb').forEach(t=>{
+  t.addEventListener('click', ()=>{ document.querySelectorAll('#charRow2 .thumb').forEach(x=>x.classList.remove('selected')); t.classList.add('selected'); });
+});
+document.querySelectorAll('#mapRow .thumb').forEach(t=>{
+  t.addEventListener('click', ()=>{ document.querySelectorAll('#mapRow .thumb').forEach(x=>x.classList.remove('selected')); t.classList.add('selected'); });
+});
+
+let selectedMap = 'floating';
+document.getElementById('mapRow').addEventListener('click', (e)=>{
+  const t = e.target.closest('.thumb'); if(!t) return;
+  selectedMap = t.dataset.map;
+});
+
+startBtn.addEventListener('click', ()=>{
+  menu.style.display='none'; ui.style.display='flex';
+  document.getElementById('controlsWrap').style.display='flex';
+  startMatch();
+});
+
+/* -------------------------
+   Canvas & resize
+   ------------------------- */
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+function resize(){
+  canvas.width = Math.max(900, window.innerWidth - 40);
+  canvas.height = Math.max(500, window.innerHeight - 180);
+}
+window.addEventListener('resize', resize);
+resize();
+
+/* -------------------------
+   Inputs
+   ------------------------- */
+const in1 = {left:false,right:false,jump:false,block:false,attack:false,special:false};
+const in2 = {left:false,right:false,jump:false,block:false,attack:false,special:false};
+bindTouch('p1-left', in1, 'left'); bindTouch('p1-right', in1, 'right'); bindTouch('p1-jump', in1, 'jump');
+bindTouch('p1-block', in1, 'block'); bindTouch('p1-attack', in1, 'attack'); bindTouch('p1-special', in1, 'special');
+bindTouch('p2-left', in2, 'left'); bindTouch('p2-right', in2, 'right'); bindTouch('p2-jump', in2, 'jump');
+bindTouch('p2-block', in2, 'block'); bindTouch('p2-attack', in2, 'attack'); bindTouch('p2-special', in2, 'special');
+
+/* -------------------------
+   Game objects & setup
+   ------------------------- */
+function createPlayer(x,color,id){ return {
+  id:id, x:x, y:100, vx:0, vy:0, w:48, h:48, color:color, facing:1,
+  damage:0, lives:3, onGround:false, jumpsLeft:2, alive:true,
+  block:false, attackTimer:0, specialActive:false, specialStart:0, specialCooldown:0,
+  armUpper: -Math.PI/6, armFore: 0.6
+};}
+let p1, p2, bot=null, activeMap='floating';
+const gravity = 1600;
+let last = performance.now(), running=true, inMatch=false;
+
+function setupMap(map){
+  activeMap = map;
+  const ground = canvas.height - 70;
+  if(map==='floating'){
+    return [
+      {x:0,y:ground+24,w:canvas.width,h:200},
+      {x:canvas.width*0.3,y:ground-100,w:220,h:14},
+      {x:canvas.width*0.6,y:ground-160,w:200,h:14},
+      {x:canvas.width*0.45,y:ground-240,w:180,h:14}
+    ];
+  } else if(map==='desert'){
+    return [
+      {x:0,y:ground+24,w:canvas.width,h:200},
+      {x:120,y:ground-40,w:140,h:14},
+      {x:canvas.width-300,y:ground-120,w:240,h:14}
+    ];
+  } else {
+    return [
+      {x:0,y:ground+24,w:canvas.width,h:200},
+      {x:canvas.width*0.25,y:ground-80,w:200,h:14},
+      {x:canvas.width*0.55,y:ground-120,w:220,h:14},
+      {x:canvas.width*0.75,y:ground-200,w:160,h:14}
+    ];
+  }
+}
+let platforms=[];
+
+/* -------------------------
+   Start match
+   ------------------------- */
+function startMatch(){
+  resize();
+  platforms = setupMap(selectedMap || 'floating');
+  document.getElementById('mapLabel').textContent = 'Map: ' + (selectedMap==='floating'?'Floating Platforms':selectedMap==='desert'?'Desert Arena':'City Rooftops');
+  const p1Char = document.querySelector('#charRow1 .thumb.selected').dataset.char || 'red';
+  const p2Char = document.querySelector('#charRow2 .thumb.selected').dataset.char || 'blue';
+  const lives = parseInt(document.getElementById('lives').value) || 3;
+  p1 = createPlayer(220, p1Char==='red'?'#ff5b5b':'#4e8cff',1); p2 = createPlayer(canvas.width-220, p2Char==='red'?'#ff5b5b':'#4e8cff',2);
+  p1.lives = p2.lives = lives; p1.damage = p2.damage = 0;
+  p1.specialCooldown = p2.specialCooldown = 0;
+  if(mode===1){ bot = createPlayer(canvas.width-220, p2.color, 0); bot.isBot=true; }
+  else bot = null;
+  last = performance.now(); inMatch = true; running=true;
+  requestAnimationFrame(loop);
+}
+
+/* -------------------------
+   Physics & helpers
+   ------------------------- */
+function rectOverlap(x1,y1,w1,h1,x2,y2,w2,h2){
+  const l1=x1-w1/2, r1=x1+w1/2, t1=y1-h1/2, b1=y1+h1/2;
+  const l2=x2-w2/2, r2=x2+w2/2, t2=y2-h2/2, b2=y2+h2/2;
+  return !(l1>r2 || r1<l2 || t1>b2 || b1<t2);
+}
+
+function stepPlayer(p,dt,inp){
+  if(!p) return;
+  if(p.id===1 || p.id===2){
+    if(inp.left && !inp.right) p.vx -= 1400*dt, p.facing=-1;
+    if(inp.right && !inp.left) p.vx += 1400*dt, p.facing=1;
+    if(inp.jump){
+      if(p.jumpsLeft>0 && !p.specialActive){ p.vy = -560; p.jumpsLeft--; inp.jump=false; }
+    }
+    p.block = inp.block || false;
+    if(inp.attack){ p.attackTimer = Math.max(p.attackTimer, 18); inp.attack=false; }
+    if(inp.special){
+      if(Date.now() - (p.specialCooldown||0) > 5000){
+        if(p.color === '#ff5b5b') startRedBeam(p);
+        else startBlueSlam(p);
+        p.specialCooldown = Date.now();
+      }
+      inp.special=false;
+    }
+  }
+  p.vy += gravity * dt;
+  p.vx *= 0.98;
+  p.x += p.vx * dt; p.y += p.vy * dt;
+  p.onGround = false;
+  for(const pl of platforms){
+    if(p.y + p.h/2 > pl.y && p.y - p.h/2 < pl.y && p.x + p.w/2 > pl.x && p.x - p.w/2 < pl.x + pl.w){
+      p.y = pl.y - p.h/2; p.vy = 0; p.onGround=true; p.jumpsLeft = 2;
+    }
+  }
+  p.x = Math.max(-200, Math.min(canvas.width+200, p.x));
+  if(p.y > canvas.height + 300) p.alive=false;
+}
+
+/* -------------------------
+   Simple bot AI
+   ------------------------- */
+function botAI(dt){
+  if(!bot || !bot.alive) return;
+  const target = p1;
+  const dx = target.x - bot.x;
+  if(Math.abs(dx) > 80) bot.vx += Math.sign(dx)*220*dt;
+  else bot.vx += (Math.random()-0.5)*60*dt;
+  if(Math.abs(dx) < 120 && Math.random()<0.02) bot.attackTimer = Math.max(bot.attackTimer,18);
+  if(Math.abs(dx) < 260 && Math.random()<0.01 && Date.now() - (bot.specialCooldown||0) > 5000){
+    startBlueSlam(bot); bot.specialCooldown = Date.now();
+  }
+  if(bot.onGround && Math.random()<0.01){ bot.vy = -520; bot.jumpsLeft = 1; }
+}
+
+/* -------------------------
+   Hits and damage
+   ------------------------- */
+function handleHits(){
+  const checkHit = (a,b)=>{
+    if(!a || !b) return;
+    if(a.attackTimer > 12){
+      const hx = a.x + a.facing*(a.w*0.9);
+      if(rectOverlap(hx,a.y,42,30, b.x,b.y,b.w,b.h)){
+        applyHit(b, a.facing, 6, a);
+        a.attackTimer = 0;
+      }
+    }
+  };
+  checkHit(p1,p2); checkHit(p2,p1);
+  if(bot){ checkHit(p1,bot); checkHit(p2,bot); checkHit(bot,p1); checkHit(bot,p2); }
+}
+
+function applyHit(victim, dir, dmg, attacker, special=false){
+  if(victim.block){
+    victim.damage += Math.max(1, Math.round(dmg*0.4));
+    victim.vx += dir * 40;
+  } else {
+    victim.damage += dmg;
+    const kb = (special?420:240) + victim.damage*6;
+    victim.vx += dir * kb/60; victim.vy -= (special?220:140) + victim.damage*0.6;
+  }
+  victim.stun = 12;
+}
+
+/* -------------------------
+   Specials: Red Beam & Blue Slam
+   ------------------------- */
+function startRedBeam(user){
+  if(user.specialActive) return;
+  user.specialActive = 'beam_charging'; user.specialStart = Date.now(); user._lastBeamTick = 0;
+}
+function processRedBeam(user){
+  if(!user.specialActive) return;
+  if(user.specialActive === 'beam_charging'){
+    if(Date.now() - user.specialStart >= 300){
+      user.specialActive = 'beam'; user.beamStart = Date.now(); user.vx = 0; user.vy = 0;
+    }
+    return;
+  }
+  if(user.specialActive === 'beam'){
+    if(Date.now() - user.beamStart > 3000){ user.specialActive = false; user.specialCooldown = Date.now(); return; }
+    const now = Date.now();
+    if(now - (user._lastBeamTick||0) >= 300){
+      user._lastBeamTick = now;
+      const bx = user.x + user.facing*(user.w/2 + 20);
+      const by = user.y; const bw = 320, bh = 80;
+      const targets = [p1,p2,bot].filter(t=>t && t!==user && t.alive);
+      targets.forEach(t=>{
+        if(rectOverlap(bx,by,bw,bh,t.x,t.y,t.w,t.h)){
+          applyHit(t, user.facing, 3, user, true);
+          t.vx += user.facing * 30;
+        }
+      });
+    }
+  }
+}
+
+function startBlueSlam(user){
+  if(user.specialActive) return;
+  user.specialActive = 'slam'; user.specialStart = Date.now(); user.vy = -520; user.jumpsLeft = 0; user.vx = 0;
+}
+function processBlueSlam(user){
+  if(!user.specialActive) return;
+  if(user.specialActive === 'slam' && user.vy > 0){
+    const opponent = (user===p1)? p2 : p1;
+    if(opponent && rectOverlap(user.x,user.y,user.w+24,user.h+16, opponent.x,opponent.y,opponent.w,opponent.h)){
+      applyHit(opponent, user.facing, 40, user, true);
+      opponent.vx += user.facing * 120;
+      user.specialActive = false; user.specialCooldown = Date.now();
+    }
+  }
+  if(Date.now() - user.specialStart > 3500){ user.specialActive = false; user.specialCooldown = Date.now(); }
+}
+
+/* -------------------------
+   KOs, respawn, endmatch
+   ------------------------- */
+function checkKOs(){
+  const handle = (pl, other, nameOther)=>{
+    if(!pl.alive){
+      pl.lives--;
+      if(pl.lives>0) respawn(pl, pl.id===1?220:canvas.width-220);
+      else {
+        endMatch(other===p1?'PLAYER 1 WINS!':'PLAYER 2 WINS!');
+      }
+    }
+  };
+  if(bot) { if(!bot.alive){ bot.lives--; if(bot.lives>0) respawn(bot, canvas.width-220); else endMatch('YOU WIN!'); } }
+  handle(p1,p2,'P2'); handle(p2,p1,'P1');
+}
+
+function respawn(p,x){
+  setTimeout(()=>{ p.x = x; p.y = 80; p.vx = 0; p.vy = 0; p.damage = 0; p.alive = true; p.jumpsLeft = 2; updateUI(); }, 700);
+}
+let resetting=false;
+function endMatch(text){
+  if(resetting) return; resetting=true;
+  document.getElementById('controlsWrap').style.display='none';
+  document.getElementById('overlayWin').style.display='flex';
+  document.getElementById('overlayWin').textContent = text;
+  setTimeout(()=>{ document.getElementById('overlayWin').style.display='none'; resetting=false; location.reload(); }, 3000);
+}
+
+/* -------------------------
+   UI update and draw
+   ------------------------- */
+function updateUI(){
+  if(!p1 || !p2) return;
+  document.getElementById('p1Percent').textContent = Math.round(p1.damage) + '%';
+  document.getElementById('p2Percent').textContent = Math.round(p2.damage) + '%';
+  document.getElementById('p1Lives').textContent = 'x' + p1.lives;
+  document.getElementById('p2Lives').textContent = 'x' + p2.lives;
+}
+
+function drawPlayer(p){
+  if(!p) return;
+  ctx.save(); ctx.translate(p.x, p.y);
+  ctx.fillStyle = 'rgba(0,0,0,0.12)'; ctx.beginPath(); ctx.ellipse(0, p.h/2+12, p.w*0.6, 10, 0, 0, Math.PI*2); ctx.fill();
+  if(p.color === '#ff5b5b'){ ctx.fillStyle = p.color; ctx.fillRect(-p.w/2, -p.h/2, p.w, p.h); }
+  else { ctx.fillStyle = p.color; ctx.beginPath(); ctx.moveTo(0,-p.h/2); ctx.lineTo(p.w/2, p.h/2); ctx.lineTo(-p.w/2,p.h/2); ctx.closePath(); ctx.fill(); }
+  ctx.strokeStyle = '#222'; ctx.lineWidth = 5; ctx.lineCap = 'round';
+  let upper = p.block ? -Math.PI/3 : -Math.PI/6;
+  if(p.attackTimer>0) upper = -Math.PI/4;
+  if(p.specialActive==='beam_charging') upper = -Math.PI/2;
+  const sxL = -10, sy = -8;
+  const elbowLx = sxL + Math.cos(upper)*20, elbowLy = sy + Math.sin(upper)*20;
+  const foreAngleL = upper + 0.5; const handLx = elbowLx + Math.cos(foreAngleL)*18, handLy = elbowLy + Math.sin(foreAngleL)*18;
+  ctx.beginPath(); ctx.moveTo(sxL,sy); ctx.lineTo(elbowLx,elbowLy); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(elbowLx,elbowLy); ctx.lineTo(handLx,handLy); ctx.stroke();
+  const sxR = 10;
+  const elbowRx = sxR + Math.cos(-upper)*20, elbowRy = sy + Math.sin(-upper)*20;
+  const foreAngleR = -upper - 0.5; const handRx = elbowRx + Math.cos(foreAngleR)*18, handRy = elbowRy + Math.sin(foreAngleR)*18;
+  ctx.beginPath(); ctx.moveTo(sxR,sy); ctx.lineTo(elbowRx,elbowRy); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(elbowRx,elbowRy); ctx.lineTo(handRx,handRy); ctx.stroke();
+  ctx.fillStyle = '#111'; ctx.font = '16px sans-serif'; ctx.textAlign = 'center'; ctx.fillText(Math.round(p.damage) + '%', 0, -p.h/2 - 12);
+  ctx.restore();
+}
+
+function draw(){
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  const g = ctx.createLinearGradient(0,0,0,canvas.height); g.addColorStop(0,'#bfeaff'); g.addColorStop(1,'#dffcff');
+  ctx.fillStyle = g; ctx.fillRect(0,0,canvas.width,canvas.height);
+  ctx.fillStyle = '#fff'; for(const pl of platforms){ ctx.fillRect(pl.x, pl.y, pl.w, pl.h); ctx.fillStyle='#00000010'; ctx.fillRect(pl.x+6,pl.y+pl.h,pl.w-12,6); ctx.fillStyle='#fff'; }
+  [p1,p2,bot].forEach(p=>{ if(!p) return; if(p.specialActive==='beam'){ ctx.save(); ctx.globalAlpha = 0.9; const bx = p.x + p.facing*(p.w/2 + 20); ctx.fillStyle = 'rgba(120,220,255,0.25)'; ctx.fillRect(bx - 160, p.y - 40, 320, 80); ctx.restore(); } });
+  if(bot) drawPlayer(bot);
+  drawPlayer(p2); drawPlayer(p1);
+}
+
+/* -------------------------
+   Main loop
+   ------------------------- */
+function loop(now){
+  const dt = Math.min((now - last) / 1000, 0.033); last = now;
+  if(inMatch && running){
+    if(bot) botAI(dt);
+    [p1,p2,bot].forEach(o=>{ if(o) { processRedBeam(o); processBlueSlam(o); }});
+    stepPlayer(p1, dt, in1); stepPlayer(p2, dt, in2); if(bot) stepPlayer(bot, dt, {left:false,right:false,jump:false,block:false,attack:false,special:false});
+    [p1,p2,bot].forEach(x=>{ if(!x) return; if(x.attackTimer>0) x.attackTimer--; });
+    handleHits(); checkKOs(); updateUI();
+  }
+  draw();
+  requestAnimationFrame(loop);
+}
+canvas.addEventListener('click', ()=>{ running = !running; });
+
+/* Keyboard debug */
+window.addEventListener('keydown', e=>{
+  if(e.key==='a') in1.left=true; if(e.key==='d') in1.right=true; if(e.key==='w') in1.jump=true; if(e.key==='s') in1.block=true; if(e.key==='j') in1.attack=true; if(e.key==='k') in1.special=true;
+  if(e.key==='ArrowLeft') in2.left=true; if(e.key==='ArrowRight') in2.right=true; if(e.key==='ArrowUp') in2.jump=true; if(e.key==='m') in2.attack=true; if(e.key==='.') in2.special=true;
+});
+window.addEventListener('keyup', e=>{
+  if(e.key==='a') in1.left=false; if(e.key==='d') in1.right=false; if(e.key==='w') in1.jump=false; if(e.key==='s') in1.block=false; if(e.key==='j') in1.attack=false; if(e.key==='k') in1.special=false;
+  if(e.key==='ArrowLeft') in2.left=false; if(e.key==='ArrowRight') in2.right=false; if(e.key==='ArrowUp') in2.jump=false; if(e.key==='m') in2.attack=false; if(e.key==='.') in2.special=false;
+});
+
+/* Start animation loop */
+requestAnimationFrame(loop);
+
+/* Wake lock (prevents screen dimming while playing if browser supports it) */
+let wakeLock = null;
+async function enableWakeLock(){
+  try{
+    if('wakeLock' in navigator){
+      wakeLock = await navigator.wakeLock.request('screen');
+      wakeLock.addEventListener('release', ()=>{ wakeLock = null; });
+    }
+  }catch(e){ console.log('WakeLock error', e); }
+}
+/* Try to enable when game starts */
+document.addEventListener('visibilitychange', async ()=>{
+  if(document.visibilityState === 'visible' && !wakeLock) await enableWakeLock();
+});
+
+/* Expose functions used in game loop */
+function processRedBeam(u){ if(u) { if(u.specialActive) { if(u.specialActive==='beam_charging'){ if(Date.now()-u.specialStart>=300){ u.specialActive='beam'; u.beamStart=Date.now(); u.vx=0; u.vy=0;} } else if(u.specialActive==='beam'){ if(Date.now()-u.beamStart>3000){ u.specialActive=false; u.specialCooldown=Date.now(); return;} const now=Date.now(); if(now-(u._lastBeamTick||0)>=300){ u._lastBeamTick=now; const bx=u.x+u.facing*(u.w/2+20); const targets=[p1,p2,bot].filter(t=>t && t!==u && t.alive); targets.forEach(t=>{ if(rectOverlap(bx,u.y,320,80,t.x,t.y,t.w,t.h)){ applyHit(t,u.facing,3,u,true); t.vx+=u.facing*30; } }); } } } } }
+function processBlueSlam(u){ if(u && u.specialActive==='slam'){ if(u.vy>0){ const opponent=(u===p1)?p2:p1; if(opponent && rectOverlap(u.x,u.y,u.w+24,u.h+16,opponent.x,opponent.y,opponent.w,opponent.h)){ applyHit(opponent,u.facing,40,u,true); opponent.vx+=u.facing*120; u.specialActive=false; u.specialCooldown=Date.now(); } } if(Date.now()-u.specialStart>3500){ u.specialActive=false; u.specialCooldown=Date.now(); } } }
+
+/* Minimal safeguard: show menu if page loaded without game */
+window.addEventListener('load', ()=>{ /* no-op */ });
+
+</script>
 </body>
 </html>
